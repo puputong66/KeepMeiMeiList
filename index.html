@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>妹妹保母任務生成器</title>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <style>
+        /* CSS 樣式區域 */
+        :root {
+            --sidebar-width: 250px;
+            --light-bg: #f4f7f6;
+            --card-bg: #ffffff;
+            --primary-color: #3f51b5;
+            --secondary-color: #4caf50;
+            --text-color: #333;
+            --border-color: #e0e0e0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            background-color: var(--light-bg);
+            color: var(--text-color);
+            display: flex;
+            min-height: 100vh;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            text-align: center;
+            padding: 10px 0;
+            font-size: 1.5em;
+            margin: 0;
+        }
+
+        /* ----------------------- 響應式佈局 (RWD) ----------------------- */
+        .container {
+            display: flex;
+            width: 100%;
+            flex-grow: 1;
+        }
+
+        /* 側邊欄 - 任務卡片區 */
+        .sidebar {
+            width: var(--sidebar-width);
+            background-color: #e0f2f1; /* 淺綠色系背景 */
+            padding: 20px 10px;
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 主要內容區 - To Do List 區 */
+        .main-content {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        /* 手機模式 (小於 768px) */
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column; /* 垂直堆疊 */
+            }
+            .sidebar {
+                width: 100%;
+                height: auto;
+                max-height: 30vh; /* 手機上任務卡片區高度限制 */
+                overflow-x: hidden;
+                padding: 10px;
+                box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            }
+            .task-cards-grid {
+                display: flex;
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                padding-bottom: 10px;
+            }
+            .task-card {
+                flex: 0 0 120px; /* 卡片固定寬度 */
+                margin: 5px;
+                font-size: 0.9em;
+            }
+            .main-content {
+                padding: 10px;
+                min-height: 70vh;
+            }
+        }
+
+        /* ----------------------- 任務卡片樣式 ----------------------- */
+        .task-cards-grid {
+            display: grid;
+            gap: 10px;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        }
+
+        .task-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+            cursor: grab;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            font-weight: bold;
+            user-select: none; /* 防止文字被選中 */
+        }
+
+        .task-card:hover {
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+
+        /* 拖曳時的視覺效果 */
+        .sortable-ghost {
+            opacity: 0.4;
+            background-color: #c8e6c9;
+            border: 2px dashed var(--secondary-color);
+        }
+        
+        /* ----------------------- To Do List 區域樣式 ----------------------- */
+        .todo-section {
+            background-color: var(--card-bg);
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            border-left: 5px solid var(--primary-color);
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        input[type="date"], input[type="text"], select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 1em;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        /* To Do List 拖曳區 */
+        .task-list {
+            min-height: 120px;
+            border: 2px dashed var(--border-color);
+            padding: 10px;
+            border-radius: 8px;
+            background-color: #fcfcfc;
+        }
+
+        .list-item {
+            background-color: #e3f2fd; /* 淺藍色 */
+            padding: 8px 12px;
+            margin: 5px 0;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: grab;
+            border: 1px solid #bbdefb;
+            font-weight: 500;
+        }
+
+        .list-item-content {
+            flex-grow: 1;
+        }
+
+        .remove-btn {
+            background: none;
+            border: none;
+            color: #ef5350; /* 紅色 */
+            cursor: pointer;
+            font-size: 1.2em;
+            margin-left: 10px;
+        }
+        
+        /* ----------------------- 按鈕樣式 ----------------------- */
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap; /* RWD 換行 */
+        }
+
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s, transform 0.1s;
+            flex-grow: 1;
+            min-width: 120px;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #303f9f;
+        }
+
+        .btn-secondary {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #388e3c;
+        }
+
+        .btn-danger {
+            background-color: #ff6e6e;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background-color: #e53935;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        /* ----------------------- 彈出視窗 (Modal) 樣式 ----------------------- */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+            backdrop-filter: blur(3px);
+            padding-top: 60px;
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 10px;
+            width: 80%;
+            max-width: 500px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+
+        .close-btn {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close-btn:hover,
+        .close-btn:focus {
+            color: #000;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        
+        /* ----------------------- 複製結果區塊樣式 ----------------------- */
+        #copy-output {
+            white-space: pre-wrap;
+            text-align: left;
+            padding: 15px;
+            border: 1px solid var(--border-color);
+            background-color: var(--light-bg);
+            margin-bottom: 15px;
+            border-radius: 5px;
+        }
+        
+        /* 隱藏區塊，用於截圖功能 */
+        .hidden-for-layout {
+            display: none;
+        }
+
+        .screenshot-area {
+            padding: 20px;
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            width: 100%;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="sidebar">
+            <h1>任務卡片</h1>
+            <div id="task-cards-source" class="task-cards-grid">
+                <div class="task-card" data-task="餵罐罐">餵罐罐</div>
+                <div class="task-card" data-task="鏟屎">鏟屎</div>
+                <div class="task-card" data-task="收＋洗罐罐碗">收＋洗罐罐碗</div>
+                <div class="task-card" data-task="換飼料盤，新的擦乾加30g飼料">換飼料盤，新的擦乾加30g飼料</div>
+                <div class="task-card" data-task="換水碗（共四個）">換水碗（共四個）</div>
+                <div class="task-card" data-task="廚房燈不用關">廚房燈不用關</div>
+                <div class="task-card" data-task="跟妹妹說嗨">跟妹妹說嗨</div>
+                <div class="task-card" data-task="摸摸妹妹">摸摸妹妹</div>
+                <div class="task-card" data-task="看妹妹要不要梳毛">看妹妹要不要梳毛</div>
+                <div class="task-card" data-task="其他(自行填入)">其他(自行填入)</div>
+            </div>
+        </div>
+
+        <div class="main-content" id="main-content">
+            <h1>妹妹保母任務 To Do List</h1>
+            
+            <div id="task-sections-container">
+                </div>
+
+            <div class="button-group">
+                <button id="reset-all-btn" class="btn btn-danger">🗑️ 清空所有內容</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="result-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2>任務完成！請選擇操作</h2>
+            <div class="button-group" style="margin-top: 0;">
+                <button id="copy-text-btn" class="btn btn-primary">📋 純文字複製</button>
+                <button id="screenshot-btn" class="btn btn-secondary">🖼️ 截圖 (右鍵存檔)</button>
+            </div>
+            
+            <div id="copy-output-area" class="hidden-for-layout">
+                <h3 style="color: var(--primary-color);">複製內容預覽：</h3>
+                <pre id="copy-output"></pre>
+            </div>
+            
+            <div id="screenshot-display-area"></div>
+        </div>
+    </div>
+
+    <script>
+        // JavaScript 邏輯區域
+        document.addEventListener('DOMContentLoaded', () => {
+            const sectionsContainer = document.getElementById('task-sections-container');
+            const resultModal = document.getElementById('result-modal');
+            const closeBtn = document.querySelector('.close-btn');
+            const copyTextBtn = document.getElementById('copy-text-btn');
+            const screenshotBtn = document.getElementById('screenshot-btn');
+            const copyOutput = document.getElementById('copy-output');
+            const screenshotDisplayArea = document.getElementById('screenshot-display-area');
+            const resetAllBtn = document.getElementById('reset-all-btn');
+
+            let sectionCount = 0;
+
+            // ----------------------------------------
+            // 1. 核心函數：生成任務區塊 HTML
+            // ----------------------------------------
+            function createTaskSection() {
+                sectionCount++;
+                const sectionId = `section-${sectionCount}`;
+                const sectionHtml = `
+                    <div id="${sectionId}" class="todo-section">
+                        <h2>任務時段 #${sectionCount}</h2>
+                        
+                        ${sectionCount === 1 ? `
+                        <div class="form-group">
+                            <label for="date-picker">日期選擇器</label>
+                            <input type="date" id="date-picker" value="${new Date().toISOString().slice(0, 10)}">
+                        </div>
+                        ` : ''}
+
+                        <div class="form-group">
+                            <label for="${sectionId}-time-slot">時段選擇器</label>
+                            <select id="${sectionId}-time-slot">
+                                <option value="早上 (約 8:00 - 10:00)">早上 (約 8:00 - 10:00)</option>
+                                <option value="中午 (約 11:00 - 13:00)">中午 (約 11:00 - 13:00)</option>
+                                <option value="下午 (約 14:00 - 17:00)">下午 (約 14:00 - 17:00)</option>
+                                <option value="晚上 (約 18:00 - 20:00)" selected>晚上 (約 18:00 - 20:00)</option>
+                                <option value="睡前 (約 21:00 - 23:00)">睡前 (約 21:00 - 23:00)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="${sectionId}-time-note">時間備註</label>
+                            <input type="text" id="${sectionId}-time-note" placeholder="例如：19:30 準時餵食">
+                        </div>
+
+                        <div class="form-group">
+                            <label>任務 To Do List (最多 10 個，可拖曳排序)</label>
+                            <div id="${sectionId}-task-list" class="task-list">
+                                <p style="text-align:center; color:#999; margin: 25px 0;">請從左側拖曳任務卡片至此</p>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="${sectionId}-task-note">任務備註</label>
+                            <textarea id="${sectionId}-task-note" placeholder="例如：妹妹今天精神很好，罐罐全部吃完"></textarea>
+                        </div>
+                        
+                        <div class="button-group">
+                            <button class="btn btn-primary complete-task-btn" data-section-id="${sectionId}">✅ 確定 (結束排任務)</button>
+                            <button class="btn btn-secondary add-section-btn">➕ 增加下一個時段</button>
+                        </div>
+                    </div>
+                `;
+                sectionsContainer.insertAdjacentHTML('beforeend', sectionHtml);
+
+                // 初始化 SortableJS
+                const taskListEl = document.getElementById(`${sectionId}-task-list`);
+                new Sortable(taskListEl, {
+                    group: {
+                        name: 'tasks',
+                        pull: 'clone', // 允許從這裡拉出去
+                        put: true // 允許從外面拉進來
+                    },
+                    animation: 150,
+                    sort: true, // 允許內部排序
+                    onAdd: function (evt) {
+                        handleTaskDrop(evt, taskListEl);
+                    },
+                    filter: '.list-item .remove-btn', // 允許點擊刪除按鈕
+                    onFilter: function (evt) {
+                        evt.item.parentNode.removeChild(evt.item);
+                        checkEmptyState(taskListEl);
+                    }
+                });
+
+                // 為新按鈕綁定事件
+                document.querySelector(`#${sectionId} .add-section-btn`).addEventListener('click', createTaskSection);
+                document.querySelector(`#${sectionId} .complete-task-btn`).addEventListener('click', (e) => showResultModal(e.target.dataset.sectionId));
+            }
+
+            // ----------------------------------------
+            // 2. 拖曳處理：處理任務卡片拉入
+            // ----------------------------------------
+            function handleTaskDrop(evt, taskListEl) {
+                const item = evt.item;
+                const taskName = item.dataset.task;
+
+                // 移除佔位提示
+                checkEmptyState(taskListEl, true);
+
+                // 檢查是否超過 10 個任務
+                if (taskListEl.children.length > 10) {
+                    item.parentNode.removeChild(item);
+                    alert("一個時段最多只能排 10 個任務喔！");
+                    return;
+                }
+
+                // 處理「其他(自行填入)」
+                if (taskName === '其他(自行填入)') {
+                    const customText = prompt("請輸入自定義任務內容 (例如：換貓砂)");
+                    if (customText) {
+                        item.innerHTML = `<span class="list-item-content">${customText}</span> <button class="remove-btn">&times;</button>`;
+                        item.dataset.taskContent = customText; // 儲存真實內容
+                        item.classList.add('list-item');
+                        item.classList.remove('task-card');
+                    } else {
+                        // 如果取消輸入，則移除該項目
+                        item.parentNode.removeChild(item);
+                    }
+                } else {
+                    // 處理一般任務
+                    item.innerHTML = `<span class="list-item-content">${taskName}</span> <button class="remove-btn">&times;</button>`;
+                    item.dataset.taskContent = taskName; // 儲存真實內容
+                    item.classList.add('list-item');
+                    item.classList.remove('task-card');
+                }
+            }
+
+            // ----------------------------------------
+            // 3. 佔位符檢查
+            // ----------------------------------------
+            function checkEmptyState(taskListEl, removing = false) {
+                const items = taskListEl.querySelectorAll('.list-item').length;
+                let placeholder = taskListEl.querySelector('p');
+
+                if (items === 0 && !placeholder) {
+                    taskListEl.innerHTML = '<p style="text-align:center; color:#999; margin: 25px 0;">請從左側拖曳任務卡片至此</p>';
+                } else if (items > 0 && placeholder && removing) {
+                    placeholder.remove();
+                }
+            }
+
+
+            // ----------------------------------------
+            // 4. 模態視窗與數據獲取
+            // ----------------------------------------
+            let activeSectionId = null;
+
+            function showResultModal(sectionId) {
+                activeSectionId = sectionId;
+                const modalTitle = document.querySelector('#result-modal h2');
+                modalTitle.textContent = `任務時段 #${sectionId.split('-')[1]} 完成！請選擇操作`;
+                
+                // 預先生成純文字內容
+                generateTextOutput();
+                
+                // 清空截圖區域
+                screenshotDisplayArea.innerHTML = '';
+                
+                resultModal.style.display = 'block';
+            }
+
+            closeBtn.onclick = () => {
+                resultModal.style.display = 'none';
+            }
+
+            window.onclick = (event) => {
+                if (event.target == resultModal) {
+                    resultModal.style.display = 'none';
+                }
+            }
+
+            function generateTextOutput() {
+                const date = document.getElementById('date-picker').value;
+                
+                let output = `📅 任務日期：${date}\n\n`;
+                
+                // 獲取所有任務區塊的數據
+                document.querySelectorAll('.todo-section').forEach((section, index) => {
+                    const sectionId = section.id;
+                    const timeSlot = document.getElementById(`${sectionId}-time-slot`).value;
+                    const timeNote = document.getElementById(`${sectionId}-time-note`).value;
+                    const taskNote = document.getElementById(`${sectionId}-task-note`).value;
+                    const taskListEl = document.getElementById(`${sectionId}-task-list`);
+                    
+                    output += `----------------------------------------\n`;
+                    output += `🕒 時段 ${index + 1}：${timeSlot}\n`;
+                    if (timeNote) {
+                        output += `🕒 時間備註：${timeNote}\n`;
+                    }
+                    output += `\n`;
+                    
+                    // 任務列表
+                    output += `📝 任務 To Do List：\n`;
+                    taskListEl.querySelectorAll('.list-item').forEach((item, i) => {
+                        const content = item.dataset.taskContent || item.querySelector('.list-item-content').textContent.trim();
+                        output += `   [${i + 1}] ${content}\n`;
+                    });
+
+                    if (taskNote) {
+                        output += `\n✏️ 任務備註：${taskNote}\n`;
+                    }
+                });
+
+                copyOutput.textContent = output;
+                return output;
+            }
+
+            // ----------------------------------------
+            // 5. 按鈕功能：複製與截圖
+            // ----------------------------------------
+            copyTextBtn.onclick = () => {
+                const textToCopy = generateTextOutput();
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    alert('純文字任務清單已成功複製到剪貼簿！');
+                }).catch(err => {
+                    console.error('複製失敗: ', err);
+                    alert('複製失敗，請手動複製下方文字。');
+                });
+            };
+
+            screenshotBtn.onclick = () => {
+                screenshotDisplayArea.innerHTML = '正在生成圖片，請稍候...';
+                
+                // 1. 隱藏不必要的元素 (按鈕區、Modal 內容自身)
+                const buttonsToHide = document.querySelectorAll('.button-group');
+                buttonsToHide.forEach(btn => btn.style.display = 'none');
+                
+                // 2. 創建一個專門用於截圖的 DIV，包含所有任務區塊
+                const screenshotArea = document.createElement('div');
+                screenshotArea.className = 'screenshot-area';
+                
+                const allSectionsHTML = Array.from(document.querySelectorAll('.todo-section')).map(section => {
+                    // 複製每個 section 的內容，並隱藏其內部的刪除按鈕
+                    const tempSection = section.cloneNode(true);
+                    tempSection.querySelectorAll('.remove-btn').forEach(btn => btn.remove());
+                    tempSection.querySelector('.button-group').remove();
+                    return tempSection.outerHTML;
+                }).join('');
+
+                const date = document.getElementById('date-picker').value;
+                screenshotArea.innerHTML = `
+                    <h1 style="margin-bottom: 15px;">妹妹保母任務清單</h1>
+                    <h3 style="color: var(--secondary-color);">🗓️ 任務日期：${date}</h3>
+                    ${allSectionsHTML}
+                `;
+
+                // 暫時將截圖區域添加到 body，以便 html2canvas 處理
+                document.body.appendChild(screenshotArea);
+                
+                // 3. 執行截圖
+                html2canvas(screenshotArea, { 
+                    scale: 2, // 提高解析度
+                    logging: false 
+                }).then(canvas => {
+                    // 4. 清理並顯示結果
+                    screenshotDisplayArea.innerHTML = '';
+                    canvas.style.maxWidth = '100%'; // RWD 調整
+                    canvas.style.borderRadius = '8px';
+                    canvas.style.boxShadow = '0 0 10px rgba(0,0,0,0.2)';
+                    screenshotDisplayArea.appendChild(canvas);
+
+                    // 重新顯示被隱藏的按鈕
+                    buttonsToHide.forEach(btn => btn.style.display = 'flex');
+                    
+                    // 移除暫時的截圖區域
+                    document.body.removeChild(screenshotArea);
+                    
+                    alert('截圖已生成！在圖片上點擊右鍵或長按即可儲存。');
+                });
+            };
+
+            // ----------------------------------------
+            // 6. 初始化與清空
+            // ----------------------------------------
+            // 初始化側邊欄卡片的 Sortable
+            new Sortable(document.getElementById('task-cards-source'), {
+                group: {
+                    name: 'tasks',
+                    pull: 'clone', // 允許從這裡拉出去
+                    put: false // 不允許從外面拉進來
+                },
+                sort: false, // 不允許內部排序
+                animation: 150
+            });
+
+            // 清空所有內容
+            resetAllBtn.onclick = () => {
+                if (confirm('確定要清空所有已排的任務內容嗎？')) {
+                    sectionsContainer.innerHTML = ''; // 移除所有區塊
+                    sectionCount = 0; // 重置計數器
+                    createTaskSection(); // 重新創建第一個區塊
+                    document.getElementById('date-picker').value = new Date().toISOString().slice(0, 10); // 重設日期
+                }
+            };
+
+            // 網頁加載完成後，創建第一個任務區塊
+            createTaskSection();
+        });
+    </script>
+
+</body>
+</html>
