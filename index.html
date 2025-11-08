@@ -23,7 +23,6 @@
             margin: 0;
             background-color: var(--light-bg);
             color: var(--text-color);
-            display: flex;
             min-height: 100vh;
         }
 
@@ -35,30 +34,37 @@
             margin: 0;
         }
 
-        /* ----------------------- 響應式佈局 (RWD) ----------------------- */
+        /* ----------------------- 響應式佈局 (RWD) & 固定側邊欄 ----------------------- */
         .container {
             display: flex;
             width: 100%;
-            flex-grow: 1;
+            min-height: 100vh; /* 確保內容區有足夠高度觸發頁面捲動 */
         }
 
-        /* 側邊欄 - 任務卡片區 */
+        /* 側邊欄 - 任務卡片區 (固定在左側) */
         .sidebar {
             width: var(--sidebar-width);
+            height: 100vh; /* 讓側邊欄佔滿整個視窗高度 */
+            position: fixed; /* 關鍵：固定在視窗上 */
+            top: 0;
+            left: 0;
             background-color: #e0f2f1; /* 淺綠色系背景 */
             padding: 20px 10px;
             box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
-            overflow-y: auto;
+            overflow-y: auto; /* 側邊欄內容太長時，允許內部捲動 */
             flex-shrink: 0;
             display: flex;
             flex-direction: column;
+            z-index: 10;
         }
 
         /* 主要內容區 - To Do List 區 */
         .main-content {
             flex-grow: 1;
             padding: 20px;
-            overflow-y: auto;
+            margin-left: var(--sidebar-width); /* 關鍵：向右推開，留出側邊欄的位置 */
+            overflow-y: visible; 
+            min-height: 100vh;
         }
 
         /* 手機模式 (小於 768px) */
@@ -69,10 +75,11 @@
             .sidebar {
                 width: 100%;
                 height: auto;
-                max-height: 30vh; /* 手機上任務卡片區高度限制 */
+                max-height: 30vh; 
                 overflow-x: hidden;
                 padding: 10px;
                 box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+                position: static; /* 手機模式取消固定定位 */
             }
             .task-cards-grid {
                 display: flex;
@@ -81,13 +88,14 @@
                 padding-bottom: 10px;
             }
             .task-card {
-                flex: 0 0 120px; /* 卡片固定寬度 */
+                flex: 0 0 120px; 
                 margin: 5px;
                 font-size: 0.9em;
             }
             .main-content {
                 padding: 10px;
                 min-height: 70vh;
+                margin-left: 0; /* 手機模式取消左側邊距 */
             }
         }
 
@@ -108,7 +116,7 @@
             transition: transform 0.2s, box-shadow 0.2s;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
             font-weight: bold;
-            user-select: none; /* 防止文字被選中 */
+            user-select: none;
         }
 
         .task-card:hover {
@@ -168,7 +176,7 @@
         }
 
         .list-item {
-            background-color: #e3f2fd; /* 淺藍色 */
+            background-color: #e3f2fd; 
             padding: 8px 12px;
             margin: 5px 0;
             border-radius: 5px;
@@ -187,7 +195,7 @@
         .remove-btn {
             background: none;
             border: none;
-            color: #ef5350; /* 紅色 */
+            color: #ef5350; 
             cursor: pointer;
             font-size: 1.2em;
             margin-left: 10px;
@@ -198,7 +206,7 @@
             display: flex;
             gap: 10px;
             margin-top: 20px;
-            flex-wrap: wrap; /* RWD 換行 */
+            flex-wrap: wrap; 
         }
 
         .btn {
@@ -430,15 +438,22 @@
                 new Sortable(taskListEl, {
                     group: {
                         name: 'tasks',
-                        pull: 'clone', // 允許從這裡拉出去
-                        put: true // 允許從外面拉進來
+                        pull: 'clone', 
+                        put: true 
                     },
                     animation: 150,
-                    sort: true, // 允許內部排序
+                    sort: true, 
+                    
+                    // 【優化】啟用自動捲動
+                    forceFallback: true, 
+                    scroll: true, 
+                    scrollSensitivity: 50, 
+                    scrollSpeed: 15,
+
                     onAdd: function (evt) {
                         handleTaskDrop(evt, taskListEl);
                     },
-                    filter: '.list-item .remove-btn', // 允許點擊刪除按鈕
+                    filter: '.list-item .remove-btn', 
                     onFilter: function (evt) {
                         evt.item.parentNode.removeChild(evt.item);
                         checkEmptyState(taskListEl);
@@ -472,7 +487,7 @@
                     const customText = prompt("請輸入自定義任務內容 (例如：換貓砂)");
                     if (customText) {
                         item.innerHTML = `<span class="list-item-content">${customText}</span> <button class="remove-btn">&times;</button>`;
-                        item.dataset.taskContent = customText; // 儲存真實內容
+                        item.dataset.taskContent = customText; 
                         item.classList.add('list-item');
                         item.classList.remove('task-card');
                     } else {
@@ -482,7 +497,7 @@
                 } else {
                     // 處理一般任務
                     item.innerHTML = `<span class="list-item-content">${taskName}</span> <button class="remove-btn">&times;</button>`;
-                    item.dataset.taskContent = taskName; // 儲存真實內容
+                    item.dataset.taskContent = taskName; 
                     item.classList.add('list-item');
                     item.classList.remove('task-card');
                 }
@@ -533,7 +548,8 @@
             }
 
             function generateTextOutput() {
-                const date = document.getElementById('date-picker').value;
+                const dateInput = document.getElementById('date-picker');
+                const date = dateInput ? dateInput.value : '未選擇日期';
                 
                 let output = `📅 任務日期：${date}\n\n`;
                 
@@ -596,11 +612,17 @@
                     // 複製每個 section 的內容，並隱藏其內部的刪除按鈕
                     const tempSection = section.cloneNode(true);
                     tempSection.querySelectorAll('.remove-btn').forEach(btn => btn.remove());
-                    tempSection.querySelector('.button-group').remove();
+                    // 檢查並移除按鈕區，防止截圖
+                    const sectionButtonGroup = tempSection.querySelector('.button-group');
+                    if (sectionButtonGroup) {
+                         sectionButtonGroup.remove();
+                    }
                     return tempSection.outerHTML;
                 }).join('');
 
-                const date = document.getElementById('date-picker').value;
+                const dateInput = document.getElementById('date-picker');
+                const date = dateInput ? dateInput.value : '未選擇日期';
+                
                 screenshotArea.innerHTML = `
                     <h1 style="margin-bottom: 15px;">妹妹保母任務清單</h1>
                     <h3 style="color: var(--secondary-color);">🗓️ 任務日期：${date}</h3>
@@ -612,12 +634,12 @@
                 
                 // 3. 執行截圖
                 html2canvas(screenshotArea, { 
-                    scale: 2, // 提高解析度
+                    scale: 2, 
                     logging: false 
                 }).then(canvas => {
                     // 4. 清理並顯示結果
                     screenshotDisplayArea.innerHTML = '';
-                    canvas.style.maxWidth = '100%'; // RWD 調整
+                    canvas.style.maxWidth = '100%'; 
                     canvas.style.borderRadius = '8px';
                     canvas.style.boxShadow = '0 0 10px rgba(0,0,0,0.2)';
                     screenshotDisplayArea.appendChild(canvas);
@@ -639,20 +661,28 @@
             new Sortable(document.getElementById('task-cards-source'), {
                 group: {
                     name: 'tasks',
-                    pull: 'clone', // 允許從這裡拉出去
-                    put: false // 不允許從外面拉進來
+                    pull: 'clone', 
+                    put: false 
                 },
-                sort: false, // 不允許內部排序
-                animation: 150
+                sort: false, 
+                animation: 150,
+                // 【優化】啟用自動捲動
+                forceFallback: true, 
+                scroll: true, 
+                scrollSensitivity: 50, 
+                scrollSpeed: 15 
             });
 
             // 清空所有內容
             resetAllBtn.onclick = () => {
                 if (confirm('確定要清空所有已排的任務內容嗎？')) {
-                    sectionsContainer.innerHTML = ''; // 移除所有區塊
-                    sectionCount = 0; // 重置計數器
-                    createTaskSection(); // 重新創建第一個區塊
-                    document.getElementById('date-picker').value = new Date().toISOString().slice(0, 10); // 重設日期
+                    sectionsContainer.innerHTML = ''; 
+                    sectionCount = 0; 
+                    createTaskSection(); 
+                    const dateInput = document.getElementById('date-picker');
+                    if (dateInput) {
+                        dateInput.value = new Date().toISOString().slice(0, 10);
+                    }
                 }
             };
 
